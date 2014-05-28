@@ -57,6 +57,7 @@ func (h *Hokusai) Add(epoch int64, s string, count uint32) {
 	h.itemAggregate = append(h.itemAggregate, h.sk.Clone())
 
 	// Algorithm 2 -- Time Aggregation
+	l = 0
 	for h.timeUnits%(1<<uint(l)) == 0 {
 		l++
 	}
