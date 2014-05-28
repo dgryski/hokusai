@@ -27,7 +27,7 @@ func main() {
 
 	scanner := bufio.NewScanner(f)
 
-	h := sketch.NewHokusai(int64(*epoch0), int64(*windowSize))
+	h := sketch.NewHokusai(int64(*epoch0), int64(*windowSize), 20, 5)
 
 	var maxEpoch int
 

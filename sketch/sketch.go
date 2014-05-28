@@ -14,23 +14,30 @@ type Hokusai struct {
 	windowSize int64
 	timeUnits  int
 
+	width int
+	depth int
+
 	// FIXME(dgryski): rename these to be the same as the paper?
 	itemAggregate     []*probably.Sketch // A sketch
 	timeAggregate     []*probably.Sketch // M sketch
 	itemtimeAggregate []*probably.Sketch // B sketch
 }
 
-const defaultSize = 18 // from the paper
+// The paper used 2**23 bins and 4 hash functions (section 5.1)
+const DefaultWidth = 23
+const DefaultDepth = 4
 
-func newSketch(size uint) *probably.Sketch {
-	return probably.NewSketch(1<<size, 4)
+func newSketch(width, depth int) *probably.Sketch {
+	return probably.NewSketch(1<<uint(width), depth)
 }
 
-func NewHokusai(epoch0 int64, windowSize int64) *Hokusai {
+func NewHokusai(epoch0 int64, windowSize int64, width, depth int) *Hokusai {
 	return &Hokusai{
+		width:      width,
+		depth:      depth,
 		epoch0:     epoch0,
 		endEpoch:   epoch0 + windowSize,
-		sk:         newSketch(defaultSize),
+		sk:         newSketch(width, depth),
 		windowSize: windowSize,
 	}
 }
@@ -66,7 +73,7 @@ func (h *Hokusai) Add(epoch int64, s string, count uint32) {
 	for j := 0; j < l; j++ {
 		t := m.Clone()
 		if len(h.timeAggregate) <= j {
-			h.timeAggregate = append(h.timeAggregate, newSketch(defaultSize))
+			h.timeAggregate = append(h.timeAggregate, newSketch(h.width, h.depth))
 		}
 		mj := h.timeAggregate[j]
 
@@ -82,7 +89,7 @@ func (h *Hokusai) Add(epoch int64, s string, count uint32) {
 			t := ssk.Clone()
 
 			if len(h.itemtimeAggregate) <= j {
-				n := newSketch(defaultSize - uint(j) - 1)
+				n := newSketch(h.width-j-1, h.depth)
 				h.itemtimeAggregate = append(h.itemtimeAggregate, n)
 			}
 			bj := h.itemtimeAggregate[j]
@@ -92,7 +99,7 @@ func (h *Hokusai) Add(epoch int64, s string, count uint32) {
 	}
 
 	// reset current sketch
-	h.sk = newSketch(defaultSize)
+	h.sk = newSketch(h.width, h.depth)
 	h.sk.Increment(s)
 }
 
@@ -116,7 +123,7 @@ func (h *Hokusai) Count(epoch int64, s string) uint32 {
 		}
 	}
 
-	if float64(minA) > (math.E*float64(t))/float64(int(1<<(defaultSize-uint(t)-1))) {
+	if float64(minA) > (math.E*float64(t))/float64(int(1<<uint(h.width-t-1))) {
 		// heavy hitter
 		return minA
 	}
