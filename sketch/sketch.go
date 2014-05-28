@@ -115,6 +115,15 @@ func (h *Hokusai) Count(epoch int64, s string) uint32 {
 
 	// Algorithm 5
 
+	// how far in the past?
+	past := h.timeUnits - t
+
+	var width int
+	if past <= 2 {
+		width = h.width
+	} else {
+		width = h.width - ilog2(past-1) + 1
+	}
 	Avals := h.itemAggregate[t].Values(s)
 	minA := Avals[0]
 	for _, v := range Avals[1:] {
@@ -123,12 +132,12 @@ func (h *Hokusai) Count(epoch int64, s string) uint32 {
 		}
 	}
 
-	if float64(minA) > (math.E*float64(t))/float64(int(1<<uint(h.width-t-1))) {
+	if float64(minA) > (math.E*float64(t))/float64(int(1)<<uint(width)) {
 		// heavy hitter
 		return minA
 	}
 
-	jstar := ilog2(h.timeUnits-t) - 1
+	jstar := ilog2(past) - 1
 	Mvals := h.timeAggregate[jstar].Values(s)
 	Bvals := h.itemtimeAggregate[jstar].Values(s)
 
