@@ -6,7 +6,7 @@ import (
 	"github.com/dustin/go-probably"
 )
 
-type hokusai struct {
+type Hokusai struct {
 	sk *probably.Sketch
 
 	epoch0     int64
@@ -26,8 +26,8 @@ func newSketch(size uint) *probably.Sketch {
 	return probably.NewSketch(1<<size, 4)
 }
 
-func NewHokusai(epoch0 int64, windowSize int64) *hokusai {
-	return &hokusai{
+func NewHokusai(epoch0 int64, windowSize int64) *Hokusai {
+	return &Hokusai{
 		epoch0:     epoch0,
 		endEpoch:   epoch0 + windowSize,
 		sk:         newSketch(defaultSize),
@@ -35,7 +35,7 @@ func NewHokusai(epoch0 int64, windowSize int64) *hokusai {
 	}
 }
 
-func (h *hokusai) Add(epoch int64, s string, count uint32) {
+func (h *Hokusai) Add(epoch int64, s string, count uint32) {
 
 	if epoch < h.endEpoch {
 		// still in the current window
@@ -95,7 +95,7 @@ func (h *hokusai) Add(epoch int64, s string, count uint32) {
 	h.sk.Increment(s)
 }
 
-func (h *hokusai) Count(epoch int64, s string) uint32 {
+func (h *Hokusai) Count(epoch int64, s string) uint32 {
 
 	// t is our unit time index
 	t := int((epoch - h.epoch0) / h.windowSize)
