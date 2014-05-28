@@ -51,8 +51,8 @@ func (h *Hokusai) Add(epoch int64, s string, count uint32) {
 	l := ilog2(h.timeUnits - 1)
 	for k := 1; k < l; k++ {
 		// itemAggregation[t] is the data array for time t
-		l := h.itemAggregate[ln-1<<uint(k)]
-		l.Compress()
+		sk := h.itemAggregate[ln-1<<uint(k)]
+		sk.Compress()
 	}
 	h.itemAggregate = append(h.itemAggregate, h.sk.Clone())
 
