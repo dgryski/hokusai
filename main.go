@@ -36,7 +36,7 @@ func main() {
 	for scanner.Scan() {
 		line := scanner.Text()
 		lines++
-		fields := strings.SplitN(line, "\t", 2)
+		fields := strings.Split(line, "\t")
 
 		t, err := strconv.Atoi(fields[0])
 		if err != nil {
@@ -52,7 +52,18 @@ func main() {
 			log.Println("processed", lines)
 		}
 
-		h.Add(int64(t), fields[1], 1)
+		var count uint32 = 1
+
+		if len(fields) == 3 {
+			cint, err := strconv.Atoi(fields[2])
+			if err != nil {
+				log.Println("failed to parse count: ", fields[2], ":", err)
+				continue
+			}
+			count = uint32(cint)
+		}
+
+		h.Add(int64(t), fields[1], count)
 	}
 
 	qf, err := os.Open(*queries)
