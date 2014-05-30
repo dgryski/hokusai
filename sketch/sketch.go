@@ -17,8 +17,11 @@ type Hokusai struct {
 	width int
 	depth int
 
+	intervals uint
+
 	// FIXME(dgryski): rename these to be the same as the paper?
 	itemAggregate     []*probably.Sketch // A sketch
+	liveItems         int
 	timeAggregate     []*probably.Sketch // M sketch
 	itemtimeAggregate []*probably.Sketch // B sketch
 }
@@ -31,7 +34,7 @@ func newSketch(width, depth int) *probably.Sketch {
 	return probably.NewSketch(1<<uint(width), depth)
 }
 
-func NewHokusai(epoch0 int64, windowSize int64, width, depth int) *Hokusai {
+func NewHokusai(epoch0 int64, windowSize int64, intervals uint, width, depth int) *Hokusai {
 	return &Hokusai{
 		width:      width,
 		depth:      depth,
@@ -39,6 +42,7 @@ func NewHokusai(epoch0 int64, windowSize int64, width, depth int) *Hokusai {
 		endEpoch:   epoch0 + windowSize,
 		sk:         newSketch(width, depth),
 		windowSize: windowSize,
+		intervals:  intervals,
 	}
 }
 
@@ -53,17 +57,33 @@ func (h *Hokusai) Add(epoch int64, s string, count uint32) {
 	h.timeUnits++
 	h.endEpoch += h.windowSize
 
-	// Algorithm 3 -- Item Aggregation
+	/*
+		Algorithm 3 -- Item Aggregation
+	*/
 	ln := len(h.itemAggregate)
 	l := ilog2(h.timeUnits - 1)
+
+	h.liveItems++
+
+	if h.liveItems >= 1<<h.intervals {
+		// kill off the oldest live interval
+		h.itemAggregate[ln-h.liveItems+1] = nil
+		h.liveItems--
+	}
+
 	for k := 1; k < l; k++ {
 		// itemAggregation[t] is the data array for time t
 		sk := h.itemAggregate[ln-1<<uint(k)]
-		sk.Compress()
+		// FIXME(dgryski): can we avoid this check by be smarter about loop bounds?
+		if sk != nil {
+			sk.Compress()
+		}
 	}
 	h.itemAggregate = append(h.itemAggregate, h.sk.Clone())
 
-	// Algorithm 2 -- Time Aggregation
+	/*
+		Algorithm 2 -- Time Aggregation
+	*/
 	l = 0
 	for h.timeUnits%(1<<uint(l)) == 0 {
 		l++
@@ -71,6 +91,13 @@ func (h *Hokusai) Add(epoch int64, s string, count uint32) {
 
 	m := h.sk.Clone()
 	for j := 0; j < l; j++ {
+		if j > int(h.intervals) {
+			// FIXME(dgryski): could be smarter here, but it's O(log log(T)), so I'm not worried about it
+			if j < len(h.timeAggregate) {
+				h.timeAggregate[j] = nil
+			}
+			continue
+		}
 		t := m.Clone()
 		if len(h.timeAggregate) <= j {
 			h.timeAggregate = append(h.timeAggregate, newSketch(h.width, h.depth))
@@ -81,10 +108,26 @@ func (h *Hokusai) Add(epoch int64, s string, count uint32) {
 		h.timeAggregate[j] = t
 	}
 
-	// Algorithm 4 -- Item and Time Aggregation
+	/*
+		Algorithm 4 -- Item and Time Aggregation
+	*/
+
 	if h.timeUnits >= 2 {
-		ssk := h.timeAggregate[0].Clone()
-		for j := 0; j < l; j++ {
+
+		var ssk *probably.Sketch
+
+		// FIXME(dgryski): probably could be smarter, but it's still O(log log T))
+		var j int
+		for j = 0; j < l && ssk == nil; j++ {
+			ssk = h.timeAggregate[0]
+			if ssk == nil {
+				h.itemtimeAggregate[j] = nil
+			}
+		}
+
+		ssk = ssk.Clone()
+
+		for j := j - 1; j < l; j++ {
 			ssk.Compress()
 			t := ssk.Clone()
 
@@ -117,6 +160,10 @@ func (h *Hokusai) Count(epoch int64, s string) uint32 {
 
 	// how far in the past?
 	past := h.timeUnits - t
+
+	if past >= 1<<h.intervals {
+		return 0
+	}
 
 	var width int
 	if past <= 2 {

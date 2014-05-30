@@ -18,6 +18,7 @@ func main() {
 	queries := flag.String("q", "", "query file")
 	epoch0 := flag.Int("epoch", 0, "epoch0")
 	windowSize := flag.Int("win", 1, "window size")
+	intervals := flag.Int("intv", 11, "intervals")
 	flag.Parse()
 
 	f, err := os.Open(*file)
@@ -27,7 +28,7 @@ func main() {
 
 	scanner := bufio.NewScanner(f)
 
-	h := sketch.NewHokusai(int64(*epoch0), int64(*windowSize), 20, 5)
+	h := sketch.NewHokusai(int64(*epoch0), int64(*windowSize), uint(*intervals), 20, 5)
 
 	var maxEpoch int
 

@@ -119,19 +119,20 @@ func main() {
 	width := flag.Int("w", 22, "default sketch width")
 	depth := flag.Int("d", 5, "default sketch depth")
 	win := flag.Int("win", 60, "default window size")
+	intv := flag.Int("intv", 11, "intervals to keep")
 
 	flag.Parse()
 
 	WindowSize = int64(*win)
 
 	if *file != "" {
-		loadDataFrom(*file, int64(*epoch0), *width, *depth)
+		loadDataFrom(*file, int64(*epoch0), uint(*intv), *width, *depth)
 	} else {
 
 		now := time.Now().UnixNano() / int64(time.Second)
 		Epoch0 = now - (now % int64(WindowSize))
 
-		Hoku = sketch.NewHokusai(Epoch0, int64(WindowSize), *width, *depth)
+		Hoku = sketch.NewHokusai(Epoch0, int64(WindowSize), uint(*intv), *width, *depth)
 		go func() {
 			for {
 				time.Sleep(time.Second * time.Duration(WindowSize))
@@ -148,7 +149,7 @@ func main() {
 
 }
 
-func loadDataFrom(file string, epoch0 int64, width, depth int) {
+func loadDataFrom(file string, epoch0 int64, intervals uint, width, depth int) {
 
 	f, err := os.Open(file)
 	if err != nil {
@@ -157,7 +158,7 @@ func loadDataFrom(file string, epoch0 int64, width, depth int) {
 
 	scanner := bufio.NewScanner(f)
 
-	Hoku = sketch.NewHokusai(epoch0, int64(WindowSize), width, depth)
+	Hoku = sketch.NewHokusai(epoch0, int64(WindowSize), intervals, width, depth)
 
 	var maxEpoch int
 
