@@ -21,11 +21,15 @@ import (
 	"strings"
 	"time"
 
+	"github.com/dgryski/go-topk"
 	"github.com/dgryski/hokusai/sketch"
 )
 
 // FIXME: protect with a mutex
 var Hoku *sketch.Hokusai
+
+// FIXME(dgryski): this is unbounded at the moment -- limit it to 1<<intervals elements
+var TopKs []*topk.Stream
 
 var Epoch0 int64
 
@@ -111,45 +115,66 @@ func queryHandler(w http.ResponseWriter, r *http.Request) {
 	jenc.Encode(queryResponse)
 }
 
+func topkHandler(w http.ResponseWriter, r *http.Request) {
+
+	epoch, err := defaultInt(r.FormValue("epoch"), -1)
+	if epoch < 0 || int64(epoch) < Epoch0 || err != nil {
+		http.Error(w, "bad epoch", http.StatusBadRequest)
+		return
+	}
+
+	// FIXME(dgryski): racey once we move to a ring-buffer?
+	tk := TopKs[(int64(epoch)-Epoch0)/WindowSize]
+	response := tk.Keys()
+
+	w.Header().Set("Content-Type", "application/json")
+	jenc := json.NewEncoder(w)
+	jenc.Encode(response)
+}
+
 func main() {
 
 	epoch0 := flag.Int("epoch", 0, "start epoch (from file)")
 	file := flag.String("f", "", "load data from file (instead of http)")
 	port := flag.Int("p", 8080, "http port")
-	width := flag.Int("w", 22, "default sketch width")
+	width := flag.Int("w", 20, "default sketch width")
 	depth := flag.Int("d", 5, "default sketch depth")
 	win := flag.Int("win", 60, "default window size")
-	intv := flag.Int("intv", 11, "intervals to keep")
+	intv := flag.Int("intv", 6, "intervals to keep")
+	topks := flag.Int("topk", 100, "topk elements to track")
 
 	flag.Parse()
 
 	WindowSize = int64(*win)
 
 	if *file != "" {
-		loadDataFrom(*file, int64(*epoch0), uint(*intv), *width, *depth)
+		loadDataFrom(*file, int64(*epoch0), uint(*intv), *width, *depth, *topks)
 	} else {
 
 		now := time.Now().UnixNano() / int64(time.Second)
 		Epoch0 = now - (now % int64(WindowSize))
 
 		Hoku = sketch.NewHokusai(Epoch0, int64(WindowSize), uint(*intv), *width, *depth)
+		TopKs = append(TopKs, topk.New(*topks))
 		go func() {
 			for {
 				time.Sleep(time.Second * time.Duration(WindowSize))
 				t := time.Now().UnixNano() / int64(time.Second)
 				Hoku.Add(t, "", 0)
+				TopKs = append(TopKs, topk.New(*topks))
 			}
 		}()
 	}
 
 	http.HandleFunc("/add", addHandler)
 	http.HandleFunc("/query", queryHandler)
+	http.HandleFunc("/topk", topkHandler)
 
+	log.Println("listening on port", *port)
 	log.Fatal(http.ListenAndServe(":"+strconv.Itoa(*port), nil))
-
 }
 
-func loadDataFrom(file string, epoch0 int64, intervals uint, width, depth int) {
+func loadDataFrom(file string, epoch0 int64, intervals uint, width, depth, topks int) {
 
 	f, err := os.Open(file)
 	if err != nil {
@@ -159,8 +184,10 @@ func loadDataFrom(file string, epoch0 int64, intervals uint, width, depth int) {
 	scanner := bufio.NewScanner(f)
 
 	Hoku = sketch.NewHokusai(epoch0, int64(WindowSize), intervals, width, depth)
+	TopKs = append(TopKs, topk.New(topks))
 
-	var maxEpoch int
+	maxEpoch := int(epoch0)
+	var window int64
 
 	var lines int
 
@@ -176,7 +203,13 @@ func loadDataFrom(file string, epoch0 int64, intervals uint, width, depth int) {
 		}
 
 		if t > maxEpoch {
+			step := int64(t - maxEpoch)
 			maxEpoch = t
+			window += step
+			if window >= WindowSize {
+				window = 0
+				TopKs = append(TopKs, topk.New(topks))
+			}
 		}
 
 		if lines%(1<<20) == 0 {
@@ -195,5 +228,7 @@ func loadDataFrom(file string, epoch0 int64, intervals uint, width, depth int) {
 		}
 
 		Hoku.Add(int64(t), fields[1], count)
+		tk := TopKs[len(TopKs)-1]
+		tk.Insert(fields[1], int(count))
 	}
 }
