@@ -114,31 +114,32 @@ func (h *Hokusai) Add(epoch int64, s string, count uint32) {
 
 	if h.timeUnits >= 2 {
 
-		var ssk *probably.Sketch
+		ssk := h.timeAggregate[1].Clone()
 
-		// FIXME(dgryski): probably could be smarter, but it's still O(log log T))
-		var j int
-		for j = 0; j < l && ssk == nil; j++ {
-			ssk = h.timeAggregate[0]
-			if ssk == nil {
-				h.itemtimeAggregate[j] = nil
+		for j := 1; j < l; j++ {
+
+			if j > int(h.intervals) {
+				// FIXME(dgryski): could be smarter here, but it's O(log log(T)), so I'm not worried about it
+				if j < len(h.itemtimeAggregate) {
+					h.itemtimeAggregate[j] = nil
+				}
+				continue
 			}
-		}
 
-		ssk = ssk.Clone()
-
-		for j := j - 1; j < l; j++ {
 			ssk.Compress()
 			t := ssk.Clone()
 
 			if len(h.itemtimeAggregate) <= j {
-				n := newSketch(h.width-j-1, h.depth)
+				n := newSketch(h.width-j, h.depth)
 				h.itemtimeAggregate = append(h.itemtimeAggregate, n)
 			}
 			bj := h.itemtimeAggregate[j]
 			ssk.Merge(bj)
 			h.itemtimeAggregate[j] = t
 		}
+	} else {
+		// to make the indices work out
+		h.itemtimeAggregate = append(h.itemtimeAggregate, nil)
 	}
 
 	// reset current sketch
@@ -186,7 +187,12 @@ func (h *Hokusai) Count(epoch int64, s string) uint32 {
 
 	jstar := ilog2(past) - 1
 	Mvals := h.timeAggregate[jstar].Values(s)
-	Bvals := h.itemtimeAggregate[jstar].Values(s)
+	var Bvals []uint32
+	if jstar > 0 {
+		Bvals = h.itemtimeAggregate[jstar].Values(s)
+	} else {
+		Bvals = Mvals
+	}
 
 	var nxt uint32 = math.MaxUint32
 
