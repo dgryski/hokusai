@@ -19,6 +19,8 @@ func main() {
 	epoch0 := flag.Int("epoch", 0, "epoch0")
 	windowSize := flag.Int("win", 1, "window size")
 	intervals := flag.Int("intv", 11, "intervals")
+	width := flag.Int("width", 20, "sketch width")
+	depth := flag.Int("depth", 4, "sketch depth")
 	flag.Parse()
 
 	f, err := os.Open(*file)
@@ -28,7 +30,7 @@ func main() {
 
 	scanner := bufio.NewScanner(f)
 
-	h := sketch.NewHokusai(int64(*epoch0), int64(*windowSize), uint(*intervals), 20, 5)
+	h := sketch.NewHokusai(int64(*epoch0), int64(*windowSize), uint(*intervals), *width, *depth)
 
 	var maxEpoch int
 
