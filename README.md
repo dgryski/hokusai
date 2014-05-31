@@ -1,5 +1,8 @@
 This is an implementation of "Hokusai - Sketching Streams in Real Time" by Sergiy Matusevych, Alex Smola, Amr Ahmed
 
+It maintains a time-series of count-min sketches, using aggregations to reduce
+the space (and accuracy) used by older sketches.
+
 This paper is available on-line: http://www.auai.org/uai2012/papers/231.pdf
 
 Alex Smola has given a number of lectures covering the ideas from the paper.
