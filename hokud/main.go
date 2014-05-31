@@ -14,6 +14,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"html/template"
 	"log"
 	"net/http"
 	"os"
@@ -110,10 +111,43 @@ func queryHandler(w http.ResponseWriter, r *http.Request) {
 		queryResponse.Counts = append(queryResponse.Counts, Hoku.Count(int64(t), q))
 	}
 
+	if r.FormValue("format") == "html" {
+		reportTmpl.Execute(w, queryResponse)
+		return
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	jenc := json.NewEncoder(w)
 	jenc.Encode(queryResponse)
 }
+
+var reportTmpl = template.Must(template.New("report").Parse(`
+<html>
+<script src="//cdnjs.cloudflare.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
+<script src="//cdnjs.cloudflare.com/ajax/libs/flot/0.8.2/jquery.flot.min.js"></script>
+<script src="//cdnjs.cloudflare.com/ajax/libs/flot/0.8.2/jquery.flot.time.min.js"></script>
+
+<script type="text/javascript">
+
+    var counts = {{ .Counts }};
+    var data = []
+    for (var i in counts) { data[i] = [({{ .Start }} + i* {{ .Step }}) * 1000,counts[i]]; }
+
+    $(document).ready(function() {
+        $.plot($("#placeholder"), [data], {
+            xaxis: { mode: "time" }
+        })
+    })
+
+</script>
+
+<body>
+
+<div id="placeholder" style="width:1200px; height:400px"></div>
+
+</body>
+</html>
+`))
 
 func topkHandler(w http.ResponseWriter, r *http.Request) {
 
