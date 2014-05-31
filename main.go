@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/davecheney/profile"
 	"github.com/dgryski/hokusai/sketch"
 )
 
@@ -21,7 +22,13 @@ func main() {
 	intervals := flag.Int("intv", 11, "intervals")
 	width := flag.Int("width", 20, "sketch width")
 	depth := flag.Int("depth", 4, "sketch depth")
+	cpuprofile := flag.Bool("cpuprofile", false, "enable cpu profiling")
+
 	flag.Parse()
+
+	if *cpuprofile {
+		defer profile.Start(profile.CPUProfile).Stop()
+	}
 
 	f, err := os.Open(*file)
 	if err != nil {
