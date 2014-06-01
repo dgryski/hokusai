@@ -158,7 +158,12 @@ func topkHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// FIXME(dgryski): racey once we move to a ring-buffer?
-	tk := TopKs[(int64(epoch)-Epoch0)/WindowSize]
+	t := (int64(epoch) - Epoch0) / WindowSize
+	if t < 0 || t > int64(len(TopKs)) {
+		http.Error(w, "bad epoch", http.StatusBadRequest)
+		return
+	}
+	tk := TopKs[t]
 	response := tk.Keys()
 
 	w.Header().Set("Content-Type", "application/json")
@@ -216,6 +221,8 @@ func loadDataFrom(file string, epoch0 int64, intervals uint, width, depth, topks
 	}
 
 	scanner := bufio.NewScanner(f)
+
+	Epoch0 = epoch0
 
 	Hoku = sketch.NewHokusai(epoch0, int64(WindowSize), intervals, width, depth)
 	TopKs = append(TopKs, topk.New(topks))
