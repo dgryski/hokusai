@@ -67,7 +67,7 @@ func addHandler(w http.ResponseWriter, r *http.Request) {
 
 	var epoch int64
 	if targ == 0 {
-		epoch = time.Now().UnixNano() / int64(time.Second)
+		epoch = time.Now().Unix()
 	} else {
 		epoch = int64(targ)
 	}
@@ -190,7 +190,7 @@ func main() {
 		loadDataFrom(*file, int64(*epoch0), uint(*intv), *width, *depth, *topks)
 	} else {
 
-		now := time.Now().UnixNano() / int64(time.Second)
+		now := time.Now().Unix()
 		Epoch0 = now - (now % int64(WindowSize))
 
 		Hoku = sketch.NewHokusai(Epoch0, int64(WindowSize), uint(*intv), *width, *depth)
@@ -198,7 +198,7 @@ func main() {
 		go func() {
 			for {
 				time.Sleep(time.Second * time.Duration(WindowSize))
-				t := time.Now().UnixNano() / int64(time.Second)
+				t := time.Now().Unix()
 				Hoku.Add(t, "", 0)
 				TopKs = append(TopKs, topk.New(*topks))
 			}
