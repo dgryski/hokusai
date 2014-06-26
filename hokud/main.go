@@ -1,6 +1,5 @@
 package main
 
-// TODO: topk
 // TODO: batch API
 // TODO: configure size of sketches (width/depth/window)
 // TODO: expvar, net/http/pprof
@@ -22,15 +21,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/dgryski/go-topk"
 	"github.com/dgryski/hokusai/sketch"
 )
 
 // FIXME: protect with a mutex
 var Hoku *sketch.Hokusai
-
-// FIXME(dgryski): this is unbounded at the moment -- limit it to 1<<intervals elements
-var TopKs []*topk.Stream
 
 var Epoch0 int64
 
@@ -73,6 +68,7 @@ func addHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	Hoku.Add(epoch, item, uint32(count))
+	TopKs.Insert(item, count)
 
 	// TODO: more interesting response?
 	fmt.Fprintln(w, "Ok")
@@ -159,12 +155,11 @@ func topkHandler(w http.ResponseWriter, r *http.Request) {
 
 	// FIXME(dgryski): racey once we move to a ring-buffer?
 	t := (int64(epoch) - Epoch0) / WindowSize
-	if t < 0 || t > int64(len(TopKs)) {
+	if t < 0 || t >= int64(TopKs.Len()) {
 		http.Error(w, "bad epoch", http.StatusBadRequest)
 		return
 	}
-	tk := TopKs[t]
-	response := tk.Keys()
+	response := TopKs.Keys(int(t))
 
 	w.Header().Set("Content-Type", "application/json")
 	jenc := json.NewEncoder(w)
@@ -194,13 +189,13 @@ func main() {
 		Epoch0 = now - (now % int64(WindowSize))
 
 		Hoku = sketch.NewHokusai(Epoch0, int64(WindowSize), uint(*intv), *width, *depth)
-		TopKs = append(TopKs, topk.New(*topks))
+		TopKs.Tick(*topks)
 		go func() {
 			for {
 				time.Sleep(time.Second * time.Duration(WindowSize))
 				t := time.Now().Unix()
 				Hoku.Add(t, "", 0)
-				TopKs = append(TopKs, topk.New(*topks))
+				TopKs.Tick(*topks)
 			}
 		}()
 	}
@@ -225,7 +220,7 @@ func loadDataFrom(file string, epoch0 int64, intervals uint, width, depth, topks
 	Epoch0 = epoch0
 
 	Hoku = sketch.NewHokusai(epoch0, int64(WindowSize), intervals, width, depth)
-	TopKs = append(TopKs, topk.New(topks))
+	TopKs.Tick(topks)
 
 	maxEpoch := int(epoch0)
 	var window int64
@@ -249,7 +244,7 @@ func loadDataFrom(file string, epoch0 int64, intervals uint, width, depth, topks
 			window += step
 			if window >= WindowSize {
 				window = 0
-				TopKs = append(TopKs, topk.New(topks))
+				TopKs.Tick(topks)
 			}
 		}
 
@@ -269,7 +264,6 @@ func loadDataFrom(file string, epoch0 int64, intervals uint, width, depth, topks
 		}
 
 		Hoku.Add(int64(t), fields[1], count)
-		tk := TopKs[len(TopKs)-1]
-		tk.Insert(fields[1], int(count))
+		TopKs.Insert(fields[1], int(count))
 	}
 }
