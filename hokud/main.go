@@ -19,13 +19,31 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/dgryski/hokusai/sketch"
 )
 
-// FIXME: protect with a mutex
-var Hoku *sketch.Hokusai
+type hoku struct {
+	sketch *sketch.Hokusai
+	sync.Mutex
+}
+
+func (h *hoku) Add(epoch int64, x string, count uint32) {
+	h.Lock()
+	h.sketch.Add(epoch, x, count)
+	h.Unlock()
+}
+
+func (h *hoku) Count(epoch int64, x string) uint32 {
+	h.Lock()
+	count := h.sketch.Count(epoch, x)
+	h.Unlock()
+	return count
+}
+
+var Hoku hoku
 
 var Epoch0 int64
 
@@ -187,8 +205,9 @@ func main() {
 
 		now := time.Now().Unix()
 		Epoch0 = now - (now % int64(WindowSize))
+		log.Println("Epoch0=", Epoch0)
 
-		Hoku = sketch.NewHokusai(Epoch0, int64(WindowSize), uint(*intv), *width, *depth)
+		Hoku.sketch = sketch.NewHokusai(Epoch0, int64(WindowSize), uint(*intv), *width, *depth)
 		TopKs.Tick(*topks)
 		go func() {
 			for {
@@ -219,7 +238,7 @@ func loadDataFrom(file string, epoch0 int64, intervals uint, width, depth, topks
 
 	Epoch0 = epoch0
 
-	Hoku = sketch.NewHokusai(epoch0, int64(WindowSize), intervals, width, depth)
+	Hoku.sketch = sketch.NewHokusai(epoch0, int64(WindowSize), intervals, width, depth)
 	TopKs.Tick(topks)
 
 	maxEpoch := int(epoch0)
