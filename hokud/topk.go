@@ -10,7 +10,7 @@ import (
 
 type topkstream struct {
 	streams []*topk.Stream
-	sync.RWMutex
+	sync.Mutex
 }
 
 var TopKs topkstream
