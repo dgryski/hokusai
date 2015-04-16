@@ -76,6 +76,10 @@ func main() {
 		h.Add(int64(t), fields[1], count)
 	}
 
+	if err := scanner.Err(); err != nil {
+		log.Println("error during scan:", err)
+	}
+
 	qf, err := os.Open(*queries)
 	if err != nil {
 		log.Fatal(err)
