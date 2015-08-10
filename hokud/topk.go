@@ -1,6 +1,6 @@
 package main
 
-// FIXME(dgryski): this is unbounded at the moment -- limit it to 1<<intervals (active) elements
+// TODO(dgryski): this is unbounded at the moment -- limit it to 1<<intervals (active) elements
 
 import (
 	"sync"

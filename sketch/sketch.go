@@ -19,7 +19,7 @@ type Hokusai struct {
 
 	intervals uint
 
-	// FIXME(dgryski): rename these to be the same as the paper?
+	// TODO(dgryski): rename these to be the same as the paper?
 	itemAggregate     []*probably.Sketch // A sketch
 	liveItems         int
 	timeAggregate     []*probably.Sketch // M sketch
@@ -74,7 +74,7 @@ func (h *Hokusai) Add(epoch int64, s string, count uint32) {
 	for k := 1; k < l; k++ {
 		// itemAggregation[t] is the data array for time t
 		sk := h.itemAggregate[ln-1<<uint(k)]
-		// FIXME(dgryski): can we avoid this check by be smarter about loop bounds?
+		// TODO(dgryski): can we avoid this check by be smarter about loop bounds?
 		if sk != nil {
 			sk.Compress()
 		}
@@ -92,7 +92,7 @@ func (h *Hokusai) Add(epoch int64, s string, count uint32) {
 	m := h.sk.Clone()
 	for j := 0; j < l; j++ {
 		if j > int(h.intervals) {
-			// FIXME(dgryski): could be smarter here, but it's O(log log(T)), so I'm not worried about it
+			// TODO(dgryski): could be smarter here, but it's O(log log(T)), so I'm not worried about it
 			if j < len(h.timeAggregate) {
 				h.timeAggregate[j] = nil
 			}
@@ -119,7 +119,7 @@ func (h *Hokusai) Add(epoch int64, s string, count uint32) {
 		for j := 1; j < l; j++ {
 
 			if j > int(h.intervals) {
-				// FIXME(dgryski): could be smarter here, but it's O(log log(T)), so I'm not worried about it
+				// TODO(dgryski): could be smarter here, but it's O(log log(T)), so I'm not worried about it
 				if j < len(h.itemtimeAggregate) {
 					h.itemtimeAggregate[j] = nil
 				}

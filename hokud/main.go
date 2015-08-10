@@ -171,7 +171,7 @@ func topkHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// FIXME(dgryski): racey once we move to a ring-buffer?
+	// TODO(dgryski): racey once we move to a ring-buffer?
 	t := (int64(epoch) - Epoch0) / WindowSize
 	if t < 0 || t >= int64(TopKs.Len()) {
 		http.Error(w, "bad epoch", http.StatusBadRequest)
