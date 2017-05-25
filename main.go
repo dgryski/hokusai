@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/davecheney/profile"
+	"github.com/pkg/profile"
 	"github.com/dgryski/hokusai/sketch"
 )
 
